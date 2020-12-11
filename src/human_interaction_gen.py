@@ -9,6 +9,7 @@ import random
 from geometry_msgs.msg import PoseStamped
 import actionlib
 import actionlib.msg
+from actionlib_msgs.msg import GoalStatus
 from exp_assignment2.msg import PlanningAction, PlanningActionGoal
 
 
@@ -37,9 +38,10 @@ def move_ball():
     goal_pos.goal.target_pose.pose.position.z = pos[2]
 
     # send ball position and wait that the goal is reached within 15 seconds
-    g_state = act_c.send_goal_and_wait(goal_pos.goal,rospy.Duration(15),rospy.Duration(10))
-    rospy.loginfo("Goal state: %s" % g_state)
-    #rospy.loginfo("Ball goal position published!")
+    act_c.send_goal(goal_pos.goal)
+    rospy.loginfo("Ball goal position sent!")
+    act_c.wait_for_result(rospy.Duration.from_sec(15.0))
+    rospy.loginfo("Ball has reached the goal in time")
 
 
 ## function ball_disappear
@@ -55,9 +57,11 @@ def ball_disappear():
     goal_pos.goal.target_pose.pose.position.z = -1
 
     # send ball position and wait that the goal is reached within 15 seconds
-    g_state = act_c.send_goal_and_wait(goal_pos.goal,rospy.Duration(15),rospy.Duration(10))
-    rospy.loginfo("Goal state: %s" % g_state)
-    #rospy.loginfo("Ball should disappear!")
+    act_c.send_goal(goal_pos.goal)
+    rospy.loginfo("Ball goal position sent (underground)!")
+    outcome = act_c.wait_for_result(rospy.Duration.from_sec(15.0))
+    if outcome:
+        rospy.loginfo("Ball has reached the goal in time (underground)")
 
 
 ## function main
@@ -75,8 +79,9 @@ def main():
 
     while not rospy.is_shutdown():
         # wait random time
-        rospy.sleep(random.randint(10,15))
-
+        rospy.sleep(random.randint(1,5))
+       
+        # random choice 
         if random.randint(1,2) == 1:
             # move the ball
             move_ball()
