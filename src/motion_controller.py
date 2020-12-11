@@ -2,39 +2,36 @@
 
 ## @package motion_controller
 #
-# control the position of the pet in the map respecting the behaviour
+# control the position of the robot in the map respecting the behaviour
 
 import rospy
 import random
 from std_msgs.msg import String
-from pet_behaviour.msg import IntList
-from lib.pet_map import PetMap
+from geometry_msgs.msg import Twist, Point, Pose
+from nav_msgs.msg import Odometry
+from tf import transformations
+import math
+import actionlib
+import actionlib.msg
+from exp_assignment2.msg import PlanningAction, PlanningActionGoal 
 
-## initialization of the map and variables
-pet_map = PetMap()
-goal_position = None
+act_c = None
 behaviour = None
-timescale = rospy.get_param('timescale')
-home = False
-pub = rospy.Publisher("/actual_position",IntList,queue_size=5)
-sub = None
+# home position
+home = [rospy.get_param('home_x'),rospy.get_param('home_y')]
+home_reached = False
+goal_pos = PlanningActionGoal()
 
 ## function get_random_position
 #
 # get a random position on the map
 def get_random_position():
-    randX = random.randint(0,rospy.get_param("map_dimension_x")) 
-    randY = random.randint(0,rospy.get_param("map_dimension_y")) 
+    randX = random.randint(-8,8) 
+    randY = random.randint(-8,8) 
     randPos = [randX,randY]
     return randPos
 
-## function get_position
-#
-# subscriber callback position
-def get_position(position):
-    global goal_position
-    goal_position = position.data
-    
+
 ## function get_behaviour
 #
 # subscriber callback to the behaviour topic
@@ -46,98 +43,75 @@ def get_behaviour(state):
 #
 # movement in the NORMAL state
 def move_normal():
-    ## move randomly on the map
-    randPos=get_random_position()
-    pet_map.updateMap(randPos[0],randPos[1])
-    
-    ## wait random time to simulate reaching the point
-    rospy.sleep(timescale*random.randint(5,15))
+    # get a random position
+    pos = get_random_position()
+
+    # set robot goal position 
+    goal_pos.goal.target_pose.pose.position.x = pos[0]
+    goal_pos.goal.target_pose.pose.position.y = pos[1]
+    goal_pos.goal.target_pose.pose.position.z = 0
+
+    # send robot position and wait that the goal is reached within 15 seconds
+    act_c.send_goal(goal_pos.goal)
+    rospy.loginfo("Robot goal position sent!")
+    rospy.loginfo(goal_pos.goal.target_pose.pose.position)
+    act_c.wait_for_result(rospy.Duration.from_sec(60.0))
+    rospy.loginfo("Robot has reached the goal in time")
 
 ## function move_sleep
 #
 # movement in the SLEEP state
 def move_sleep():
-    global home
+    global home_reached
+    
     ## go tho the home position
-    if not home:
-        ## wait random time to simulate reaching the point
-        rospy.sleep(timescale*random.randint(5,15))
-        pet_map.updateMap(rospy.get_param("home_x"),rospy.get_param("home_y"))
-        home = True
+    if not home_reached:
+        # set robot goal position 
+        goal_pos.goal.target_pose.pose.position.x = home[0]
+        goal_pos.goal.target_pose.pose.position.y = home[1]
+        goal_pos.goal.target_pose.pose.position.z = 0
+
+        # send robot position and wait that the goal is reached within 15 seconds
+        act_c.send_goal(goal_pos.goal)
+        rospy.loginfo("Robot goal position sent!")
+        rospy.loginfo(goal_pos.goal.target_pose.pose.position)
+        act_c.wait_for_result(rospy.Duration.from_sec(60.0))
+        rospy.loginfo("Robot has reached the goal in time, now sleeps")
+
+        home_reached = True
     
-        
-## function move_to_person
-#
-# movement in the PLAY state
-def move_to_person():
-    ## go to the person position and waits for a pointing position 
-    rospy.sleep(timescale*random.randint(5,15))
-    pet_map.updateMap(rospy.get_param("person_x"),rospy.get_param("person_y"))
-
-## function move_to_goal
-#
-# move to the point given by the user
-def move_to_goal():    
-    ## go to the pointed position 
-    rospy.sleep(timescale*random.randint(5,15))
-    pet_map.updateMap(goal_position[0],goal_position[1])
     
-        
 
 
-
-## main function
+## function main
 #
 def main():
+    # init node
     rospy.init_node("motion_controller")
-    ## subscribers
-    rospy.Subscriber("/behaviour",String, get_behaviour)
-    rospy.Subscriber("/pointing_position",IntList, get_position)
-    
-    rate = rospy.Rate(100)
-    global home
-    global goal_position
+    rate = rospy.Rate(20)
+    global act_c, home_reached
 
-    ## pub initial position
-    pub.publish([pet_map.actualX,pet_map.actualY])
+    rospy.Subscriber("/behaviour", String, get_behaviour)
 
-    ## move according to the behaviour
+    # initialize action client
+    act_c = actionlib.SimpleActionClient('/robot/reaching_goal', PlanningAction)
+    # wait for the initialization of the server for five seconds
+    act_c.wait_for_server(rospy.Duration(5))
+
     while not rospy.is_shutdown():
-        ## temporary store actual position to avoid publishing the position when pet is still
-        x = pet_map.actualX
-        y = pet_map.actualY
-
-        if(behaviour == "sleep"):
+        if behaviour == "sleep":
             move_sleep()
-            ## ignore pointing command
-            if not goal_position == None:
-                goal_position = None
-        else:
-            home = False
-            if(behaviour == "normal"):
-                move_normal()
-                ## ignore pointing command
-                if not goal_position == None:
-                    goal_position = None
-            else:
-                if(behaviour == "play"):
-                    if not ((pet_map.actualX,pet_map.actualY)  == (rospy.get_param('person_x'),rospy.get_param('person_y'))):
-                        move_to_person()
-                    else:
-                        if not goal_position == None:
-                            move_to_goal()
-                            goal_position = None
+        elif behaviour == "normal":
+            # wait random time
+            rospy.sleep(random.randint(1,5))
+            move_normal()
 
+        # reinitialize home_reached
+        home_reached = False
         
-        ## publish the actual position
-        if not (behaviour == None):
-            ## if position is not changed don't publish it
-            if not ((pet_map.actualX == x) & ((pet_map.actualY == y))):
-                pub.publish([pet_map.actualX,pet_map.actualY])
 
         rate.sleep()
 
 
 if __name__ == "__main__":
     main()
-

@@ -9,7 +9,6 @@ import smach
 import smach_ros
 import random
 from std_msgs.msg import String
-from pet_behaviour.msg import IntList
 
 
 pub_state = rospy.Publisher("/behaviour",String,queue_size=5)
@@ -78,7 +77,6 @@ class Sleep(smach.State):
         pub_state.publish("sleep")
         ## get the timescale parameter to adjust simulation speed
         timescale = rospy.get_param('timescale')
-        rospy.Subscriber("/actual_position", IntList, self.get_position)
 
         while not rospy.is_shutdown():  
             # check if the pet is in home position

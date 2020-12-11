@@ -2,14 +2,13 @@
 
 ## @package human_interaction_generator
 #
-# a pointing gesture generator (a IntList) with random delays
+# Human interactions with the ball: makes the ball move or go underground
 
 import rospy
 import random
 from geometry_msgs.msg import PoseStamped
 import actionlib
 import actionlib.msg
-from actionlib_msgs.msg import GoalStatus
 from exp_assignment2.msg import PlanningAction, PlanningActionGoal
 
 
@@ -37,10 +36,10 @@ def move_ball():
     goal_pos.goal.target_pose.pose.position.y = pos[1]
     goal_pos.goal.target_pose.pose.position.z = pos[2]
 
-    # send ball position and wait that the goal is reached within 15 seconds
+    # send ball position and wait that the goal is reached within 60 seconds
     act_c.send_goal(goal_pos.goal)
     rospy.loginfo("Ball goal position sent!")
-    act_c.wait_for_result(rospy.Duration.from_sec(15.0))
+    act_c.wait_for_result(rospy.Duration.from_sec(60.0))
     rospy.loginfo("Ball has reached the goal in time")
 
 
@@ -52,14 +51,14 @@ def ball_disappear():
     pos = get_random_position()
 
     # set ball goal position under the map
-    goal_pos.goal.target_pose.pose.position.x = pos[0]
-    goal_pos.goal.target_pose.pose.position.y = pos[1]
+    goal_pos.goal.target_pose.pose.position.x = 0
+    goal_pos.goal.target_pose.pose.position.y = 0
     goal_pos.goal.target_pose.pose.position.z = -1
 
-    # send ball position and wait that the goal is reached within 15 seconds
+    # send ball position and wait that the goal is reached within 60 seconds
     act_c.send_goal(goal_pos.goal)
     rospy.loginfo("Ball goal position sent (underground)!")
-    outcome = act_c.wait_for_result(rospy.Duration.from_sec(15.0))
+    outcome = act_c.wait_for_result(rospy.Duration.from_sec(60.0))
     if outcome:
         rospy.loginfo("Ball has reached the goal in time (underground)")
 
@@ -73,7 +72,7 @@ def main():
     global act_c
 
     # initialize action client
-    act_c = actionlib.SimpleActionClient('/reaching_goal_ball', PlanningAction)
+    act_c = actionlib.SimpleActionClient('/ball/reaching_goal', PlanningAction)
     # wait for the initialization of the server for five seconds
     act_c.wait_for_server(rospy.Duration(5))
 
