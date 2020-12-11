@@ -87,7 +87,7 @@ def go_straight_ahead(des_pos):
         pub.publish(twist_msg)
 
     else:
-        print ('Position error: [%s]' % err_pos)
+        #print ('Position error: [%s]' % err_pos)
         change_state(1)
 
 
@@ -141,13 +141,12 @@ def planning(goal):
 
 
 def main():
-    global pub, active_, act_s, pubz
-    rospy.init_node('go_to_point')
+    global pub, act_s, pubz
+    rospy.init_node('go_to_point_ball')
     pub = rospy.Publisher('cmd_vel', Twist, queue_size=1)
     pubz = rospy.Publisher('/gazebo/set_link_state', LinkState, queue_size=1)
     sub_odom = rospy.Subscriber('odom', Odometry, clbk_odom)
-    act_s = actionlib.SimpleActionServer(
-        '/reaching_goal', exp_assignment2.msg.PlanningAction, planning, auto_start=False)
+    act_s = actionlib.SimpleActionServer('/reaching_goal_ball', exp_assignment2.msg.PlanningAction, planning, auto_start=False)
     act_s.start()
 
     rate = rospy.Rate(20)

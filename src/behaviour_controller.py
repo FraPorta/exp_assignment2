@@ -27,7 +27,7 @@ class Normal(smach.State):
                             )
         
         self.command_received = False
-        self.rate = rospy.Rate(100)  # Loop at 100Hz
+        self.rate = rospy.Rate(20)  # Loop at 100Hz
 
     ## method execute
     #
@@ -69,7 +69,7 @@ class Sleep(smach.State):
                              outcomes=['wake_up']
                             )
         self.position = [-1,-1]
-        self.rate = rospy.Rate(1)
+        self.rate = rospy.Rate(20)
         
     ## method execute
     #
@@ -106,7 +106,7 @@ class Play(smach.State):
                              outcomes=['stop_play'],
                             )
         self.position = [-1,-1]
-        self.rate = rospy.Rate(1)
+        self.rate = rospy.Rate(20)
 
     ## method execute
     #
