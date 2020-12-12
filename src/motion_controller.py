@@ -8,19 +8,24 @@ import rospy
 import random
 from std_msgs.msg import String
 from geometry_msgs.msg import Twist, Point, Pose
-from nav_msgs.msg import Odometry
+from std_msgs.msg import Bool
 from tf import transformations
 import math
 import actionlib
 import actionlib.msg
 from exp_assignment2.msg import PlanningAction, PlanningActionGoal 
 
-act_c = None
+
 behaviour = None
 # home position
 home = [rospy.get_param('home_x'),rospy.get_param('home_y')]
-home_reached = False
+# Action client goal init
 goal_pos = PlanningActionGoal()
+# action client init
+act_c = None
+# home_reached publisher init
+pubHome = None
+home_reached = False
 
 ## function get_random_position
 #
@@ -30,7 +35,6 @@ def get_random_position():
     randY = random.randint(-8,8) 
     randPos = [randX,randY]
     return randPos
-
 
 ## function get_behaviour
 #
@@ -76,9 +80,9 @@ def move_sleep():
         rospy.loginfo("Robot goal position sent!")
         rospy.loginfo(goal_pos.goal.target_pose.pose.position)
         act_c.wait_for_result(rospy.Duration.from_sec(60.0))
-        rospy.loginfo("Robot has reached the goal in time, now sleeps")
-
+        rospy.loginfo("Robot has reached the home position in time, now sleeps")
         home_reached = True
+
     
     
 
@@ -92,6 +96,7 @@ def main():
     global act_c, home_reached
 
     rospy.Subscriber("/behaviour", String, get_behaviour)
+    pubHome = rospy.Publisher("/home_reached", Bool, queue_size = 1)
 
     # initialize action client
     act_c = actionlib.SimpleActionClient('/robot/reaching_goal', PlanningAction)
@@ -99,8 +104,16 @@ def main():
     act_c.wait_for_server(rospy.Duration(5))
 
     while not rospy.is_shutdown():
+
+        # wait random time
+        rospy.sleep(random.randint(1,5))
+        move_normal()
+
+
         if behaviour == "sleep":
             move_sleep()
+            pubHome.publish(home_reached)
+
         elif behaviour == "normal":
             # wait random time
             rospy.sleep(random.randint(1,5))

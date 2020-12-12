@@ -9,9 +9,11 @@ import smach
 import smach_ros
 import random
 from std_msgs.msg import String
+from std_msgs.msg import Bool
 
 
-pub_state = rospy.Publisher("/behaviour",String,queue_size=5)
+pub_state = None
+sub_home = None
 
 ## class state Normal
 #
@@ -32,7 +34,9 @@ class Normal(smach.State):
     #
     # state execution
     def execute(self, userdata):
+        rospy.loginfo('Executing state NORMAL')
         pub_state.publish("normal")
+
         ## check if a voice command is received
         rospy.Subscriber("/voice_command", String, self.get_command)
         
@@ -67,30 +71,34 @@ class Sleep(smach.State):
         smach.State.__init__(self, 
                              outcomes=['wake_up']
                             )
-        self.position = [-1,-1]
+        self.home_reached = False
         self.rate = rospy.Rate(20)
         
     ## method execute
     #
     # state execution
     def execute(self, userdata):
+        rospy.loginfo('Executing state SLEEP')
         pub_state.publish("sleep")
-        ## get the timescale parameter to adjust simulation speed
-        timescale = rospy.get_param('timescale')
 
+        # home position reached subscriber
+        sub_home = rospy.Subscriber("/home_reached", Bool, self.get_home_reached)
+        
         while not rospy.is_shutdown():  
-            # check if the pet is in home position
-            if(self.position == (rospy.get_param('home_x'),rospy.get_param('home_y'))):
+            # check if the robot is in home position
+            if(self.home_reached):
                 ## wait some time to wake up
-                rospy.sleep(timescale*random.randint(30,60))
+                rospy.sleep(random.randint(30,60))
+                self.home_reached = False
                 return 'wake_up'
             self.rate.sleep
         
-    ## method get_position
+    ## method get_home_reached
     #
-    # subscriber callback, gets actual position of the robot
-    def get_position(self,position):
-        self.position = position.data
+    # subscriber callback, gets if the robot is in the home position
+    def get_home_reached(self,home_reached):
+        self.home_reached = home_reached.data
+    
 
 ## class state Play
 #
@@ -103,34 +111,38 @@ class Play(smach.State):
         smach.State.__init__(self, 
                              outcomes=['stop_play'],
                             )
-        self.position = [-1,-1]
+        self.home_reached = False
         self.rate = rospy.Rate(20)
 
     ## method execute
     #
     # state execution
     def execute(self,userdata):
-        #rospy.loginfo('Executing state PLAY')
+        rospy.loginfo('Executing state PLAY')
         pub_state.publish("play")
-        timescale = rospy.get_param('timescale')
         
-        rospy.Subscriber("/actual_position", IntList, self.get_position)
+        # home position reached subscriber
+        sub_home = rospy.Subscriber("/home_reached", Bool, self.get_home_reached)
 
-        rospy.sleep(timescale*random.randint(60,120))
-        return 'stop_play'
-            
-        
+        rospy.sleep(random.randint(60,120))
 
-    ## method get_position
-    # subscriber callback, gets actual position of the robot
-    def get_position(self,position):
-        self.position = position.data
+        return 'stop_play' 
+
+    ## method get_home_reached
+    #
+    # subscriber callback, gets if the robot is in the home position
+    def get_home_reached(self,home_reached):
+        self.home_reached = home_reached.data
 
     
-
-    
+## function main 
+#
+#   
 def main():
     rospy.init_node("behaviour_controller")
+
+    ## current behaviour publisher
+    pub_state = rospy.Publisher("/behaviour",String,queue_size=5)
 
     ## Create a SMACH state machine
     sm = smach.StateMachine(outcomes=['container_interface'])
