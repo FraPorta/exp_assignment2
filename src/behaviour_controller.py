@@ -12,7 +12,9 @@ from std_msgs.msg import String
 from std_msgs.msg import Bool
 
 
-pub_state = None
+## current behaviour publisher
+pub_state = rospy.Publisher("/behaviour",String,queue_size=1)
+
 sub_home = None
 
 ## class state Normal
@@ -24,10 +26,10 @@ class Normal(smach.State):
     # state initialization
     def __init__(self):
         smach.State.__init__(self, 
-                             outcomes=['go_to_sleep','play_command']
+                             outcomes=['go_to_sleep','go_play']
                             )
         
-        self.command_received = False
+        self.ball_detected = False
         self.rate = rospy.Rate(20)  # Loop at 100Hz
 
     ## method execute
@@ -38,25 +40,38 @@ class Normal(smach.State):
         pub_state.publish("normal")
 
         ## check if a voice command is received
-        rospy.Subscriber("/voice_command", String, self.get_command)
-        
+        rospy.Subscriber("/ball_detected", Bool, self.get_ball_detection)
+        count = 0
+
+        init_time = rospy.Time.now()
+
         while not rospy.is_shutdown():  
-            ## go to sleep at random (1/1000 chances per iteration -> 100 iterations per second -> 1/10 chance per second passed in Normal state)
-            if(random.randint(1,1000) == 1):
-                    return 'go_to_sleep'
-            else:
+            # count time passed from the start of Normal state
+            if count == 1:
+                init_time = rospy.Time.now()
+            count = count + 1
+            current_time = rospy.Time.now()
+            time_passed = current_time.secs - init_time.secs
+
+            #rospy.loginfo(time_passed)
+
+            if (self.ball_detected):
                 ## If the robot sees the ball goes to the play behaviour
-                if():
+                return 'go_play' 
                     
-                    return 'play_command' 
+            elif (random.randint(1,1000) == 1 and time_passed > 60):
+                ## go to sleep at random 
+                #  (1/10000 chances per iteration -> 100 iterations per second -> 1/100 chance per second passed in Normal state)
+                return 'go_to_sleep'
+                    
             self.rate.sleep()
     
-    ## method get_command
+    ## method get_ball_detection
     #
-    # subscriber callback for voice command
-    def get_command(self, command):
-        if(command.data=="play"):
-            self.command_received = True
+    # subscriber callback for ball detection
+    def get_ball_detection(self, ball):
+        if(ball.data):
+            self.ball_detected = True
             
 
 
@@ -97,7 +112,8 @@ class Sleep(smach.State):
     #
     # subscriber callback, gets if the robot is in the home position
     def get_home_reached(self,home_reached):
-        self.home_reached = home_reached.data
+        if(home_reached.data):
+            self.home_reached = True
     
 
 ## class state Play
@@ -111,8 +127,9 @@ class Play(smach.State):
         smach.State.__init__(self, 
                              outcomes=['stop_play'],
                             )
-        self.home_reached = False
-        self.rate = rospy.Rate(20)
+        self.ball_detected = False
+        self.rate = rospy.Rate(1)
+        self.counter = 0
 
     ## method execute
     #
@@ -121,28 +138,36 @@ class Play(smach.State):
         rospy.loginfo('Executing state PLAY')
         pub_state.publish("play")
         
-        # home position reached subscriber
-        sub_home = rospy.Subscriber("/home_reached", Bool, self.get_home_reached)
+        ## subscriber to ball detection
+        rospy.Subscriber("/ball_detected", Bool, self.get_ball_detection)
 
-        rospy.sleep(random.randint(60,120))
+        while not rospy.is_shutdown():  
+            rospy.loginfo(rospy.Time.now().secs)
+            # check if the ball is not detected
+            if(not self.ball_detected):
+                self.counter = self.counter + 1
+                rospy.loginfo(self.counter)
+                # if the ball is not detected for 10 seconds straight
+                if self.counter > 30:
+                    return 'stop_play'
+            elif(self.ball_detected):
+                self.counter = 0
 
-        return 'stop_play' 
+            # loop every 1 second
+            self.rate.sleep()
 
-    ## method get_home_reached
+    ## method get_ball_detection
     #
-    # subscriber callback, gets if the robot is in the home position
-    def get_home_reached(self,home_reached):
-        self.home_reached = home_reached.data
-
+    # subscriber callback for ball detection
+    def get_ball_detection(self, ball):
+        if(ball.data):
+            self.ball_detected = True
     
 ## function main 
 #
 #   
 def main():
     rospy.init_node("behaviour_controller")
-
-    ## current behaviour publisher
-    pub_state = rospy.Publisher("/behaviour",String,queue_size=5)
 
     ## Create a SMACH state machine
     sm = smach.StateMachine(outcomes=['container_interface'])
@@ -152,7 +177,7 @@ def main():
         ## Add states to the container
         smach.StateMachine.add('NORMAL', Normal(), 
                                transitions={'go_to_sleep':'SLEEP', 
-                                            'play_command':'PLAY'})
+                                            'go_play':'PLAY'})
 
         smach.StateMachine.add('SLEEP', Sleep(), 
                                transitions={'wake_up':'NORMAL'})

@@ -96,7 +96,7 @@ def go_straight_ahead(des_pos):
 
     if err_pos > dist_precision_:
         twist_msg = Twist()
-        twist_msg.linear.x = 0.3
+        twist_msg.linear.x = 0.5
         if twist_msg.linear.x > ub_d:
 			twist_msg.linear.x = ub_d
         

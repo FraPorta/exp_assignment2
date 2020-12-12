@@ -78,7 +78,7 @@ def main():
 
     while not rospy.is_shutdown():
         # wait random time
-        rospy.sleep(random.randint(1,5))
+        rospy.sleep(random.randint(5,10))
        
         # random choice 
         if random.randint(1,2) == 1:
