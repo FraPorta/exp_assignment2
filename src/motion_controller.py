@@ -26,13 +26,14 @@ import imutils
 VERBOSE = False
 
 # default behaviour
-behaviour = "normal"
+behaviour = None
 # home position
 home = [rospy.get_param('home_x'),rospy.get_param('home_y')]
 # Action client goal init
 goal_pos = PlanningActionGoal()
 # action client init
 act_c = None
+target_reached = False
 
 # publishers for home poisition reaching and ball detection
 pubHome = rospy.Publisher("/home_reached", Bool, queue_size = 1)
@@ -69,10 +70,19 @@ def get_behaviour(state):
     global behaviour
     behaviour = state.data
 
+def feedback_cb(feedback):
+    global target_reached
+    # print(feedback)
+    if feedback.stat == "Target reached!":
+        target_reached = True
+
+
 ## function move_normal
 #
 # movement in the NORMAL state
 def move_normal():
+    global target_reached
+
     # get a random position
     pos = get_random_position()
 
@@ -82,19 +92,22 @@ def move_normal():
     goal_pos.goal.target_pose.pose.position.z = 0
 
     # send robot position and wait that the goal is reached within 60 seconds
-    act_c.send_goal(goal_pos.goal)
+    act_c.send_goal(goal_pos.goal, feedback_cb = feedback_cb)
     rospy.loginfo("Robot goal position sent:")
     rospy.loginfo(goal_pos.goal.target_pose.pose.position)
-    rospy.loginfo(act_c.get_state())
-    # while the goal is ACTIVE, check if the behaviour changes
-    while act_c.get_state() == 1:
-        if behaviour != 'normal':
-            act_c.cancel_goal()
+    # while the goal is being reached, check if the behaviour changes
+    while 1:
+        if behaviour == 'play' or behaviour == 'sleep':
+            rospy.loginfo("The behaviour has changed! Canceling goal...")
+            act_c.cancel_all_goals()
+            break
+        elif target_reached:
+            # if the goal has been reached
+            rospy.loginfo("Robot has reached the goal")
             break
 
-    # if the goal has been reached
-    if act_c.get_state() == 3:
-        rospy.loginfo("Robot has reached the goal in time")
+    target_reached = False
+    
 
 ## function move_sleep
 #
@@ -119,24 +132,26 @@ def move_sleep():
 #
 # movement in the PLAY state
 def move_play():
+    #act_c.send_goal()
     # if the ball is detected go towards it and start following it
     if ball_detected:
-        # if near enough to the ball start following it
         if near_ball:
-            vel = Twist()
-            vel.angular.z = 0.002*(center[0]-400)
-            vel.linear.x = -0.01*(radius-100)
-            vel_pub.publish(vel)
-        # if not near enough go towards the ball
+            # if near enough to the ball start following it
+            twist_msg = Twist()
+            twist_msg.angular.z = 0.002*(center[0] - 400)
+            twist_msg.linear.x = -0.01*(radius-100)
+            vel_pub.publish(twist_msg)
+        
         else:
-            vel = Twist()
-            vel.linear.x = 0.5
-            vel_pub.publish(vel)
+            # if not near enough go towards the ball
+            twist_msg = Twist()
+            twist_msg.linear.x = 0.5
+            vel_pub.publish(twist_msg)
     # if the ball is not detected search it
-    else:
-        vel = Twist()
-        vel.angular.z = 0.5
-        vel_pub.publish(vel)
+    elif not ball_detected:
+        twist_msg = Twist()
+        twist_msg.angular.z = 0.5
+        vel_pub.publish(twist_msg)
 
 
 
@@ -146,7 +161,7 @@ def callback(ros_data):
         if VERBOSE:
             print ('received image of type: "%s"' % ros_data.format)
         
-        global ball_detected, near_ball
+        global ball_detected, near_ball, center, radius
 
         #### direct conversion to CV2 ####
         np_arr = np.fromstring(ros_data.data, np.uint8)
@@ -193,6 +208,10 @@ def callback(ros_data):
         else:
             ball_detected = False
 
+        # if behaviour is play, follow the ball
+        if behaviour == "play":
+            move_play()
+
         # publish if the ball has been detected
         pubBall.publish(ball_detected)
 
@@ -215,9 +234,11 @@ def main():
 
     # subscriber to current behaviour
     rospy.Subscriber("/behaviour", String, get_behaviour)
-    
+    rospy.loginfo("Subscribed to the behaviour")
+
     # initialize action client
     act_c = actionlib.SimpleActionClient('/robot/reaching_goal', PlanningAction)
+
     # wait for the initialization of the server for 10 seconds
     act_c.wait_for_server(rospy.Duration(10))
 
@@ -237,8 +258,8 @@ def main():
                 rospy.sleep(random.randint(1,5))
                 move_normal()
         
-            elif behaviour == "play":
-                move_play()
+            #elif behaviour == "play":
+                #move_play()
 
 
         

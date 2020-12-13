@@ -20,7 +20,7 @@ goal_pos = PlanningActionGoal()
 def get_random_position():
     randX = random.randint(-8, 8)
     randY = random.randint(-8, 8)
-    randZ = 1
+    randZ = 0.5
     randPos = [randX, randY, randZ]
     return randPos
 
@@ -38,9 +38,9 @@ def move_ball():
 
     # send ball position and wait that the goal is reached within 60 seconds
     act_c.send_goal(goal_pos.goal)
-    rospy.loginfo("Ball goal position sent!")
+    #rospy.loginfo("Ball goal position sent!")
     act_c.wait_for_result(rospy.Duration.from_sec(60.0))
-    rospy.loginfo("Ball has reached the goal in time")
+    #rospy.loginfo("Ball has reached the goal in time")
 
 
 ## function ball_disappear
@@ -57,13 +57,14 @@ def ball_disappear():
 
     # send ball position and wait that the goal is reached within 60 seconds
     act_c.send_goal(goal_pos.goal)
-    rospy.loginfo("Ball goal position sent (underground)!")
+    #rospy.loginfo("Ball goal position sent (underground)!")
     outcome = act_c.wait_for_result(rospy.Duration.from_sec(60.0))
-    if outcome:
-        rospy.loginfo("Ball has reached the goal in time (underground)")
+    #if outcome:
+        #rospy.loginfo("Ball has reached the goal in time (underground)")
 
 
 ## function main
+#
 #
 def main():
     # init node
@@ -78,15 +79,16 @@ def main():
 
     while not rospy.is_shutdown():
         # wait random time
-        rospy.sleep(random.randint(5,10))
+        rospy.sleep(random.randint(15,20))
        
         # random choice 
-        if random.randint(1,2) == 1:
-            # move the ball
-            move_ball()
-        else:
+        if random.randint(1,3) == 1:
             # make the ball disappear
             ball_disappear()
+        else:
+            # move the ball
+            move_ball()
+            
 
         rate.sleep()
 

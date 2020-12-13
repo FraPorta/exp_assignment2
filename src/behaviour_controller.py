@@ -53,8 +53,6 @@ class Normal(smach.State):
             current_time = rospy.Time.now()
             time_passed = current_time.secs - init_time.secs
 
-            #rospy.loginfo(time_passed)
-
             if (self.ball_detected):
                 ## If the robot sees the ball goes to the play behaviour
                 return 'go_play' 
@@ -128,7 +126,7 @@ class Play(smach.State):
                              outcomes=['stop_play'],
                             )
         self.ball_detected = False
-        self.rate = rospy.Rate(1)
+        self.rate = rospy.Rate(20)
         self.counter = 0
 
     ## method execute
@@ -142,13 +140,12 @@ class Play(smach.State):
         rospy.Subscriber("/ball_detected", Bool, self.get_ball_detection)
 
         while not rospy.is_shutdown():  
-            rospy.loginfo(rospy.Time.now().secs)
             # check if the ball is not detected
             if(not self.ball_detected):
                 self.counter = self.counter + 1
-                rospy.loginfo(self.counter)
-                # if the ball is not detected for 10 seconds straight
-                if self.counter > 30:
+                #rospy.loginfo(self.counter)
+                # if the ball is not detected for 20 seconds straight
+                if self.counter > 20 * 20:
                     return 'stop_play'
             elif(self.ball_detected):
                 self.counter = 0
@@ -168,6 +165,9 @@ class Play(smach.State):
 #   
 def main():
     rospy.init_node("behaviour_controller")
+
+    # wait for the initialization of the system
+    rospy.sleep(2)
 
     ## Create a SMACH state machine
     sm = smach.StateMachine(outcomes=['container_interface'])
