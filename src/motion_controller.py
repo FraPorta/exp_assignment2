@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
-## @package motion_controller
+# @package motion_controller
 #
 # control the position of the robot in the map respecting the behaviour
 
-import sys
-import time
 import rospy
 import random
 from std_msgs.msg import String, Bool
@@ -14,108 +12,84 @@ from sensor_msgs.msg import CompressedImage
 import math
 import actionlib
 import actionlib.msg
-from exp_assignment2.msg import PlanningAction, PlanningActionGoal 
+from exp_assignment2.msg import PlanningAction, PlanningActionGoal
 
-import numpy as np
-from scipy.ndimage import filters
-
-# OpenCV
-import cv2
-import imutils
 
 VERBOSE = False
 
 # default behaviour
 behaviour = None
 # home position
-home = [rospy.get_param('home_x'),rospy.get_param('home_y')]
+home = [rospy.get_param('home_x'), rospy.get_param('home_y')]
 # Action client goal init
 goal_pos = PlanningActionGoal()
 # action client init
 act_c = None
-target_reached = False
-
+target_reached = True
 # publishers for home poisition reaching and ball detection
-pubHome = rospy.Publisher("/home_reached", Bool, queue_size = 1)
-pubBall = rospy.Publisher("/ball_detected", Bool, queue_size = 1)
+pubHome = rospy.Publisher("/home_reached", Bool, queue_size=1)
+
 # home_reached publisher init
 home_reached = False
-ball_detected = False
-near_ball = False
 
-# cv2 circle parameters
-center = None
-radius = None
-
-# ball tracking related publishers
-vel_pub = rospy.Publisher("/robot/cmd_vel", Twist, queue_size=1)
-#image_pub = rospy.Publisher("/robot/output/image_raw/compressed", CompressedImage, queue_size=1)
-
-# ball tracking related subscibersr
-sub_camera = None
-
-## function get_random_position
+# function get_random_position
 #
 # get a random position on the map
 def get_random_position():
-    randX = random.randint(-8,8) 
-    randY = random.randint(-8,8) 
-    randPos = [randX,randY]
+    randX = random.randint(-8, 8)
+    randY = random.randint(-8, 8)
+    randPos = [randX, randY]
     return randPos
 
-## function get_behaviour
+# function get_behaviour
 #
 # subscriber callback to the behaviour topic
 def get_behaviour(state):
     global behaviour
     behaviour = state.data
 
+# function feedback_cb
+#
+# callback to send_goal function
 def feedback_cb(feedback):
     global target_reached
-    # print(feedback)
+    target_reached = False
     if feedback.stat == "Target reached!":
         target_reached = True
+    # while the goal is being reached, check if the behaviour changes
+    if behaviour == 'play' or behaviour == 'sleep':
+        rospy.loginfo("The behaviour has changed! Canceling goal...")
+        act_c.cancel_all_goals()
+    elif target_reached:
+        # if the goal has been reached
+        rospy.loginfo("Robot has reached the goal")
 
-
-## function move_normal
+# function move_normal
 #
 # movement in the NORMAL state
 def move_normal():
-    global target_reached
+    if target_reached:
+        # get a random position
+        pos = get_random_position()
 
-    # get a random position
-    pos = get_random_position()
+        # set robot goal position
+        goal_pos.goal.target_pose.pose.position.x = pos[0]
+        goal_pos.goal.target_pose.pose.position.y = pos[1]
+        goal_pos.goal.target_pose.pose.position.z = 0
 
-    # set robot goal position 
-    goal_pos.goal.target_pose.pose.position.x = pos[0]
-    goal_pos.goal.target_pose.pose.position.y = pos[1]
-    goal_pos.goal.target_pose.pose.position.z = 0
+        # send robot position and wait that the goal is reached within 60 seconds
+        act_c.send_goal(goal_pos.goal, feedback_cb=feedback_cb)
+        rospy.loginfo("Robot goal position sent:")
+        rospy.loginfo(goal_pos.goal.target_pose.pose.position)
 
-    # send robot position and wait that the goal is reached within 60 seconds
-    act_c.send_goal(goal_pos.goal, feedback_cb = feedback_cb)
-    rospy.loginfo("Robot goal position sent:")
-    rospy.loginfo(goal_pos.goal.target_pose.pose.position)
-    # while the goal is being reached, check if the behaviour changes
-    while 1:
-        if behaviour == 'play' or behaviour == 'sleep':
-            rospy.loginfo("The behaviour has changed! Canceling goal...")
-            act_c.cancel_all_goals()
-            break
-        elif target_reached:
-            # if the goal has been reached
-            rospy.loginfo("Robot has reached the goal")
-            break
 
-    target_reached = False
-    
-
-## function move_sleep
+# function move_sleep
 #
 # movement in the SLEEP state
 def move_sleep():
     global home_reached
-    
-    # set robot goal position 
+
+    # set robot goal position
     goal_pos.goal.target_pose.pose.position.x = home[0]
     goal_pos.goal.target_pose.pose.position.y = home[1]
     goal_pos.goal.target_pose.pose.position.z = 0
@@ -128,109 +102,22 @@ def move_sleep():
     rospy.loginfo("Robot has reached the home position in time, now sleeps")
     home_reached = True
 
-## function move_play
+'''
+# function move_play
 #
 # movement in the PLAY state
 def move_play():
-    #act_c.send_goal()
-    # if the ball is detected go towards it and start following it
-    if ball_detected:
-        if near_ball:
-            # if near enough to the ball start following it
-            twist_msg = Twist()
-            twist_msg.angular.z = 0.002*(center[0] - 400)
-            twist_msg.linear.x = -0.01*(radius-100)
-            vel_pub.publish(twist_msg)
-        
-        else:
-            # if not near enough go towards the ball
-            twist_msg = Twist()
-            twist_msg.linear.x = 0.5
-            vel_pub.publish(twist_msg)
-    # if the ball is not detected search it
-    elif not ball_detected:
-        twist_msg = Twist()
-        twist_msg.angular.z = 0.5
-        vel_pub.publish(twist_msg)
 
-
-
-def callback(ros_data):
-        '''Callback function of subscribed topic. 
-        Here images get converted and features detected'''
-        if VERBOSE:
-            print ('received image of type: "%s"' % ros_data.format)
-        
-        global ball_detected, near_ball, center, radius
-
-        #### direct conversion to CV2 ####
-        np_arr = np.fromstring(ros_data.data, np.uint8)
-        image_np = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)  # OpenCV >= 3.0:
-
-        greenLower = (50, 50, 20)
-        greenUpper = (70, 255, 255)
-
-        blurred = cv2.GaussianBlur(image_np, (11, 11), 0)
-        hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
-        mask = cv2.inRange(hsv, greenLower, greenUpper)
-        mask = cv2.erode(mask, None, iterations=2)
-        mask = cv2.dilate(mask, None, iterations=2)
-        #cv2.imshow('mask', mask)
-        cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
-                                cv2.CHAIN_APPROX_SIMPLE)
-        cnts = imutils.grab_contours(cnts)
-        center = None
-        # only proceed if at least one contour was found
-        if len(cnts) > 0:
-            # find the largest contour in the mask, then use
-            # it to compute the minimum enclosing circle and
-            # centroid
-            c = max(cnts, key=cv2.contourArea)
-            ((x, y), radius) = cv2.minEnclosingCircle(c)
-            M = cv2.moments(c)
-            center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
-
-            # set ball detected to True
-            ball_detected = True 
-
-            # only proceed if the radius meets a minimum size
-            if radius > 10:
-                # draw the circle and centroid on the frame,
-                # then update the list of tracked points
-                cv2.circle(image_np, (int(x), int(y)), int(radius),
-                           (0, 255, 255), 2)
-                cv2.circle(image_np, center, 5, (0, 0, 255), -1)
-
-                near_ball = True
-            else:
-                near_ball = False
-
-        else:
-            ball_detected = False
-
-        # if behaviour is play, follow the ball
-        if behaviour == "play":
-            move_play()
-
-        # publish if the ball has been detected
-        pubBall.publish(ball_detected)
-
-        # update the points queue
-        # pts.appendleft(center)
-        cv2.imshow('window', image_np)
-        cv2.waitKey(2)
-
+'''
 
 ## function main
+#
 #
 def main():
     # init node
     rospy.init_node("motion_controller")
     rate = rospy.Rate(20)
     global act_c, home_reached
-
-    # ball tracking related subscibersr
-    sub_camera = rospy.Subscriber("/robot/camera1/image_raw/compressed", CompressedImage, callback,  queue_size=1)
 
     # subscriber to current behaviour
     rospy.Subscriber("/behaviour", String, get_behaviour)
@@ -249,20 +136,18 @@ def main():
                 move_sleep()
                 if home_reached:
                     pubHome.publish(home_reached)
-        else:   
+        else:
             # reinitialize home_reached
             home_reached = False
 
             if behaviour == "normal":
                 # wait random time
-                rospy.sleep(random.randint(1,5))
                 move_normal()
-        
-            #elif behaviour == "play":
-                #move_play()
+                rospy.sleep(1)
 
+            # elif behaviour == "play":
+                # move_play()
 
-        
 
 if __name__ == "__main__":
     main()

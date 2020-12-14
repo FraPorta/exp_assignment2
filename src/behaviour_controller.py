@@ -68,8 +68,7 @@ class Normal(smach.State):
     #
     # subscriber callback for ball detection
     def get_ball_detection(self, ball):
-        if(ball.data):
-            self.ball_detected = True
+        self.ball_detected = ball.data
             
 
 
@@ -109,9 +108,8 @@ class Sleep(smach.State):
     ## method get_home_reached
     #
     # subscriber callback, gets if the robot is in the home position
-    def get_home_reached(self,home_reached):
-        if(home_reached.data):
-            self.home_reached = True
+    def get_home_reached(self,home_reached):    
+        self.home_reached = home_reached.data
     
 
 ## class state Play
@@ -126,7 +124,7 @@ class Play(smach.State):
                              outcomes=['stop_play'],
                             )
         self.ball_detected = False
-        self.rate = rospy.Rate(20)
+        self.rate = rospy.Rate(1)
         self.counter = 0
 
     ## method execute
@@ -143,9 +141,9 @@ class Play(smach.State):
             # check if the ball is not detected
             if(not self.ball_detected):
                 self.counter = self.counter + 1
-                #rospy.loginfo(self.counter)
-                # if the ball is not detected for 20 seconds straight
-                if self.counter > 20 * 20:
+                rospy.loginfo(str(self.counter))
+                # if the ball is not detected for 10 seconds straight
+                if self.counter > 10:
                     return 'stop_play'
             elif(self.ball_detected):
                 self.counter = 0
@@ -157,8 +155,8 @@ class Play(smach.State):
     #
     # subscriber callback for ball detection
     def get_ball_detection(self, ball):
-        if(ball.data):
-            self.ball_detected = True
+        self.ball_detected = ball.data
+        
     
 ## function main 
 #

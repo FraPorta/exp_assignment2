@@ -11,4 +11,7 @@
 
     <node pkg="exp_assignment2" type="behaviour_controller.py" name="behaviour_controller" output="screen">
     </node>
+
+     <node pkg="exp_assignment2" type="ball_tracking.py" name="ball_tracking" output="screen">
+    </node>
 </launch>  
