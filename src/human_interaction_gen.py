@@ -78,9 +78,6 @@ def main():
     act_c.wait_for_server(rospy.Duration(5))
 
     while not rospy.is_shutdown():
-        # wait random time
-        rospy.sleep(random.randint(15,20))
-       
         # random choice 
         if random.randint(1,3) == 1:
             # make the ball disappear
@@ -88,7 +85,8 @@ def main():
         else:
             # move the ball
             move_ball()
-            
+        # wait random time
+        rospy.sleep(random.randint(5,10))
 
         rate.sleep()
 

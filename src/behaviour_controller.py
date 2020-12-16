@@ -57,7 +57,7 @@ class Normal(smach.State):
                 ## If the robot sees the ball goes to the play behaviour
                 return 'go_play' 
                     
-            elif (random.randint(1,1000) == 1 and time_passed > 60):
+            elif (random.randint(1,1000) == 1 and time_passed > 30):
                 ## go to sleep at random 
                 #  (1/10000 chances per iteration -> 100 iterations per second -> 1/100 chance per second passed in Normal state)
                 return 'go_to_sleep'
@@ -100,7 +100,7 @@ class Sleep(smach.State):
             # check if the robot is in home position
             if(self.home_reached):
                 ## wait some time to wake up
-                rospy.sleep(random.randint(30,60))
+                rospy.sleep(random.randint(20,40))
                 self.home_reached = False
                 return 'wake_up'
             self.rate.sleep
@@ -141,7 +141,7 @@ class Play(smach.State):
             # check if the ball is not detected
             if(not self.ball_detected):
                 self.counter = self.counter + 1
-                rospy.loginfo(str(self.counter))
+                rospy.loginfo("Searching for the ball... "+str(self.counter)+" seconds")
                 # if the ball is not detected for 10 seconds straight
                 if self.counter > 10:
                     return 'stop_play'

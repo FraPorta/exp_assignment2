@@ -19,7 +19,7 @@ import rospy
 # Ros Messages
 from sensor_msgs.msg import CompressedImage, JointState 
 from geometry_msgs.msg import Twist
-from std_msgs.msg import Bool, String
+from std_msgs.msg import Bool, String, Float64
 from random import randint
 import math 
 
@@ -37,10 +37,11 @@ class ball_tracking:
         self.center = None
         self.radius = None
         self.behaviour = None
+        self.ball_stopped = False
 
         self.vel_pub = rospy.Publisher("/robot/cmd_vel", Twist, queue_size=1)
         self.pubBall = rospy.Publisher("/ball_detected", Bool, queue_size=1)
-        self.pubHeadPos = rospy.Publisher("/robot/joint_states", JointState, queue_size=1)
+        self.pubHeadPos = rospy.Publisher("/robot/joint_position_controller/command", Float64, queue_size=1)
 
         # subscribed Topic
         rospy.Subscriber("/robot/camera1/image_raw/compressed", CompressedImage, self.callback,  queue_size=1)
@@ -59,24 +60,30 @@ class ball_tracking:
     def follow_ball(self):
         # if the ball is detected go towards it and start following it
         if self.ball_detected:
-            if self.near_ball:
+            if self.near_ball: 
                 # if near enough to the ball start following it
                 twist_msg = Twist()
                 twist_msg.angular.z = 0.002*(self.center[0] - 400)
-                twist_msg.linear.x = -0.01*(self.radius-100)
-                self.vel_pub.publish(twist_msg)
-            
+                twist_msg.linear.x = -0.02*(self.radius - 100)
+                # if the ball is still, move the head
+                if abs(twist_msg.angular.z) < 0.04 and abs(twist_msg.linear.x) < 0.04:
+                    rospy.loginfo("The ball has stopped!")
+                    self.move_head()
+                # else follow the ball
+                else:
+                    self.vel_pub.publish(twist_msg) 
             else:
                 # if not near enough go towards the ball
                 twist_msg = Twist()
-                twist_msg.linear.x = 0.5
+                twist_msg.linear.x = 0.7
                 self.vel_pub.publish(twist_msg)
         # if the ball is not detected search it
         elif not self.ball_detected:
             twist_msg = Twist()
             twist_msg.angular.z = 0.9
-            self.vel_pub.publish(twist_msg)
-    
+            if self.behaviour == "play":
+                self.vel_pub.publish(twist_msg)
+
     ## function move_head
     #
     # move the robot head when the robot stops following the ball
@@ -84,29 +91,22 @@ class ball_tracking:
 
         angle = math.pi/4
 
-        # move the head in one 
-        ls = LinkState()
-        js = JointState()
-        js.name = 'joint_head'
-        js.position = [angle]
-        ls.pose.orientation.
-
-
-        self.pubHeadPos(js)
+        # move the head in one direction 45 degrees
+        head_angle = Float64()
+        head_angle.data = angle
+        self.pubHeadPos.publish(head_angle)
         rospy.sleep(randint(1,3))
 
-        js = JointState()
-        js.name = 'joint_head'
-        js.position = [-angle]
-
-        self.pubHeadPos(js)
+        # move the head in the other direction 45 degrees
+        head_angle = Float64()
+        head_angle.data = -angle
+        self.pubHeadPos.publish(head_angle)
         rospy.sleep(randint(1,3))
 
-        js = JointState()
-        js.name = 'joint_head'
-        js.position = [0]
-
-        self.pubHeadPos(js)
+        # move the head in the the default direction
+        head_angle = Float64()
+        head_angle.data = 0
+        self.pubHeadPos.publish(head_angle)
 
 
     def callback(self, ros_data):

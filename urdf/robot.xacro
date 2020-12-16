@@ -175,7 +175,7 @@
     <child link="link_head"/>
     <parent link="link_neck"/>
     <axis xyz="0 0 1"/>
-    <limit effort="1000.0" lower="-1.57" upper="1.57" velocity="0.2"/>/>
+    <limit effort="1000.0" lower="-1.57" upper="1.57" velocity="0.1"/>/>
     <joint_properties damping="1.0" friction="1.0"/>
   </joint>
   

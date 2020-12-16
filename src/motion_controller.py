@@ -102,14 +102,6 @@ def move_sleep():
     rospy.loginfo("Robot has reached the home position in time, now sleeps")
     home_reached = True
 
-'''
-# function move_play
-#
-# movement in the PLAY state
-def move_play():
-
-'''
-
 ## function main
 #
 #
@@ -144,9 +136,6 @@ def main():
                 # wait random time
                 move_normal()
                 rospy.sleep(1)
-
-            # elif behaviour == "play":
-                # move_play()
 
 
 if __name__ == "__main__":
