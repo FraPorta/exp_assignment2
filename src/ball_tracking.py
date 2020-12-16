@@ -17,9 +17,11 @@ import roslib
 import rospy
 
 # Ros Messages
-from sensor_msgs.msg import CompressedImage
+from sensor_msgs.msg import CompressedImage, JointState 
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Bool, String
+from random import randint
+import math 
 
 VERBOSE = False
 
@@ -38,6 +40,7 @@ class ball_tracking:
 
         self.vel_pub = rospy.Publisher("/robot/cmd_vel", Twist, queue_size=1)
         self.pubBall = rospy.Publisher("/ball_detected", Bool, queue_size=1)
+        self.pubHeadPos = rospy.Publisher("/robot/joint_states", JointState, queue_size=1)
 
         # subscribed Topic
         rospy.Subscriber("/robot/camera1/image_raw/compressed", CompressedImage, self.callback,  queue_size=1)
@@ -52,9 +55,8 @@ class ball_tracking:
 
     ## function follow_ball
     #
-    # movement in the PLAY state
+    # publish velocities to follow the ball
     def follow_ball(self):
-        #act_c.send_goal()
         # if the ball is detected go towards it and start following it
         if self.ball_detected:
             if self.near_ball:
@@ -74,7 +76,37 @@ class ball_tracking:
             twist_msg = Twist()
             twist_msg.angular.z = 0.9
             self.vel_pub.publish(twist_msg)
+    
+    ## function move_head
+    #
+    # move the robot head when the robot stops following the ball
+    def move_head(self):
 
+        angle = math.pi/4
+
+        # move the head in one 
+        ls = LinkState()
+        js = JointState()
+        js.name = 'joint_head'
+        js.position = [angle]
+        ls.pose.orientation.
+
+
+        self.pubHeadPos(js)
+        rospy.sleep(randint(1,3))
+
+        js = JointState()
+        js.name = 'joint_head'
+        js.position = [-angle]
+
+        self.pubHeadPos(js)
+        rospy.sleep(randint(1,3))
+
+        js = JointState()
+        js.name = 'joint_head'
+        js.position = [0]
+
+        self.pubHeadPos(js)
 
 
     def callback(self, ros_data):

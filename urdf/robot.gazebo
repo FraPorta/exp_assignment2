@@ -48,6 +48,10 @@
     </plugin>
   </gazebo>
 
+  <gazebo reference="joint_head">
+    <provideFeedback>true</provideFeedback>
+  </gazebo>
+
    <!-- camera -->
   <gazebo reference="camera_link">
     <sensor type="camera" name="camera1">
