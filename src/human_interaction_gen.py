@@ -38,9 +38,7 @@ def move_ball():
 
     # send ball position and wait that the goal is reached within 60 seconds
     act_c.send_goal(goal_pos.goal)
-    #rospy.loginfo("Ball goal position sent!")
     act_c.wait_for_result(rospy.Duration.from_sec(60.0))
-    #rospy.loginfo("Ball has reached the goal in time")
 
 
 ## function ball_disappear
@@ -57,12 +55,8 @@ def ball_disappear():
 
     # send ball position and wait that the goal is reached within 60 seconds
     act_c.send_goal(goal_pos.goal)
-    #rospy.loginfo("Ball goal position sent (underground)!")
-    outcome = act_c.wait_for_result(rospy.Duration.from_sec(60.0))
-    #if outcome:
-        #rospy.loginfo("Ball has reached the goal in time (underground)")
-
-
+    act_c.wait_for_result(rospy.Duration.from_sec(60.0))
+    
 ## function main
 #
 #
@@ -79,7 +73,7 @@ def main():
 
     while not rospy.is_shutdown():
         # random choice 
-        if random.randint(1,3) == 1:
+        if random.randint(1,4) == 1:
             # make the ball disappear
             ball_disappear()
         else:

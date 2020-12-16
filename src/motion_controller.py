@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# @package motion_controller
+## @package motion_controller
 #
 # control the position of the robot in the map respecting the behaviour
 
@@ -25,14 +25,13 @@ home = [rospy.get_param('home_x'), rospy.get_param('home_y')]
 goal_pos = PlanningActionGoal()
 # action client init
 act_c = None
-target_reached = True
 # publishers for home poisition reaching and ball detection
 pubHome = rospy.Publisher("/home_reached", Bool, queue_size=1)
 
 # home_reached publisher init
 home_reached = False
 
-# function get_random_position
+## function get_random_position
 #
 # get a random position on the map
 def get_random_position():
@@ -41,18 +40,17 @@ def get_random_position():
     randPos = [randX, randY]
     return randPos
 
-# function get_behaviour
+## function get_behaviour
 #
 # subscriber callback to the behaviour topic
 def get_behaviour(state):
     global behaviour
     behaviour = state.data
 
-# function feedback_cb
+## function feedback_cb
 #
 # callback to send_goal function
 def feedback_cb(feedback):
-    global target_reached
     target_reached = False
     if feedback.stat == "Target reached!":
         target_reached = True
@@ -64,26 +62,28 @@ def feedback_cb(feedback):
         # if the goal has been reached
         rospy.loginfo("Robot has reached the goal")
 
-# function move_normal
+## function move_normal
 #
 # movement in the NORMAL state
 def move_normal():
-    if target_reached:
-        # get a random position
-        pos = get_random_position()
+    
+    # get a random position
+    pos = get_random_position()
 
-        # set robot goal position
-        goal_pos.goal.target_pose.pose.position.x = pos[0]
-        goal_pos.goal.target_pose.pose.position.y = pos[1]
-        goal_pos.goal.target_pose.pose.position.z = 0
+    # set robot goal position
+    goal_pos.goal.target_pose.pose.position.x = pos[0]
+    goal_pos.goal.target_pose.pose.position.y = pos[1]
+    goal_pos.goal.target_pose.pose.position.z = 0
 
-        # send robot position and wait that the goal is reached within 60 seconds
-        act_c.send_goal(goal_pos.goal, feedback_cb=feedback_cb)
-        rospy.loginfo("Robot goal position sent:")
-        rospy.loginfo(goal_pos.goal.target_pose.pose.position)
+    # send robot position and wait that the goal is reached within 60 seconds
+    act_c.send_goal(goal_pos.goal, feedback_cb=feedback_cb)
+    rospy.loginfo("Robot goal position sent:")
+    rospy.loginfo(goal_pos.goal.target_pose.pose.position)
+    act_c.wait_for_result(rospy.Duration.from_sec(60.0))
+    
 
 
-# function move_sleep
+## function move_sleep
 #
 # movement in the SLEEP state
 def move_sleep():

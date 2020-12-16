@@ -27,11 +27,11 @@ VERBOSE = False
 
 
 class ball_tracking:
-
+    ## method __init__
+    #
+    # initialization of the ball_tracking class
     def __init__(self):
-        ## initialize ball tracking node
-        rospy.init_node('ball_tracking', anonymous=True)
-
+        rospy.loginfo("Initialize ball tracking")
         self.ball_detected = False
         self.near_ball = False
         self.center = None
@@ -43,18 +43,22 @@ class ball_tracking:
         self.pubBall = rospy.Publisher("/ball_detected", Bool, queue_size=1)
         self.pubHeadPos = rospy.Publisher("/robot/joint_position_controller/command", Float64, queue_size=1)
 
-        # subscribed Topic
-        rospy.Subscriber("/robot/camera1/image_raw/compressed", CompressedImage, self.callback,  queue_size=1)
+        # subscriber to camera 
+        self.cam_sub = rospy.Subscriber("/robot/camera1/image_raw/compressed", CompressedImage, self.callback,  queue_size=1)
+
         # subscriber to current behaviour
         rospy.Subscriber("/behaviour", String, self.get_behaviour)
+    
+    def __del__(self): 
+        print('Destructor called, ball_tracking deleted.')
 
-    # function get_behaviour
+    # method get_behaviour
     #
     # subscriber callback to the behaviour topic
     def get_behaviour(self, state):
         self.behaviour = state.data
 
-    ## function follow_ball
+    ## method follow_ball
     #
     # publish velocities to follow the ball
     def follow_ball(self):
@@ -65,13 +69,7 @@ class ball_tracking:
                 twist_msg = Twist()
                 twist_msg.angular.z = 0.002*(self.center[0] - 400)
                 twist_msg.linear.x = -0.02*(self.radius - 100)
-                # if the ball is still, move the head
-                if abs(twist_msg.angular.z) < 0.04 and abs(twist_msg.linear.x) < 0.04:
-                    rospy.loginfo("The ball has stopped!")
-                    self.move_head()
-                # else follow the ball
-                else:
-                    self.vel_pub.publish(twist_msg) 
+                self.vel_pub.publish(twist_msg) 
             else:
                 # if not near enough go towards the ball
                 twist_msg = Twist()
@@ -81,13 +79,14 @@ class ball_tracking:
         elif not self.ball_detected:
             twist_msg = Twist()
             twist_msg.angular.z = 0.9
-            if self.behaviour == "play":
-                self.vel_pub.publish(twist_msg)
+            #if self.behaviour == "play":
+            self.vel_pub.publish(twist_msg)
 
-    ## function move_head
+    ## method move_head
     #
     # move the robot head when the robot stops following the ball
     def move_head(self):
+        rospy.loginfo("The ball has stopped!")
 
         angle = math.pi/4
 
@@ -108,13 +107,20 @@ class ball_tracking:
         head_angle.data = 0
         self.pubHeadPos.publish(head_angle)
 
+        self.ball_stopped = True
+        # unregister to camera topic
+        self.cam_sub.unregister()
 
+    ## method callback
+    #
+    # Callback function of subscribed topic. 
+    # Here images get converted and features detected
     def callback(self, ros_data):
-        '''Callback function of subscribed topic. 
-        Here images get converted and features detected'''
         if VERBOSE:
             print ('received image of type: "%s"' % ros_data.format)
 
+        angular_z = None
+        linear_x = None
         #### direct conversion to CV2 ####
         np_arr = np.fromstring(ros_data.data, np.uint8)
         image_np = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)  # OpenCV >= 3.0:
@@ -160,11 +166,7 @@ class ball_tracking:
 
         else:
             self.ball_detected = False
-
-        # if behaviour is play, follow the ball
-        if self.behaviour == "play":
-            self.follow_ball()
-
+        
         # publish if the ball has been detected
         self.pubBall.publish(self.ball_detected)
 
@@ -173,10 +175,35 @@ class ball_tracking:
         cv2.imshow('window', image_np)
         cv2.waitKey(2)
 
-        
+        # if behaviour is play, follow the ball
+        if self.behaviour == "play":
+            if self.ball_detected and self.near_ball:
+                angular_z = 0.002*(self.center[0] - 400)
+                linear_x = -0.02*(self.radius - 100)
+                # if the ball is still, move the head
+                if abs(angular_z) < 0.04 and abs(linear_x) < 0.04 :
+                    self.move_head()  
+            # follow the ball
+            self.follow_ball()
+
+
+## function main
+#
+#
 def main(args):
-    '''Initializes and cleanup ros node'''
+    ## initialize ball tracking node
+    rospy.init_node('ball_tracking', anonymous=True)
+
+    # Initializes class and cleanup ros node 
     bt = ball_tracking()
+    rate = rospy.Rate(20)
+
+    while not rospy.is_shutdown():
+        if bt.ball_stopped:
+            rospy.sleep(1)
+            bt.cam_sub = rospy.Subscriber("/robot/camera1/image_raw/compressed", CompressedImage, bt.callback,  queue_size=1)
+        rate.sleep()
+
     try:
         rospy.spin()
     except KeyboardInterrupt:
