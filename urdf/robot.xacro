@@ -174,9 +174,8 @@
     <origin rpy="0 0 0" xyz="0 0 0"/>
     <child link="link_head"/>
     <parent link="link_neck"/>
-    <axis rpy="0 0 1" xyz="0 0 0"/>
-    <limit effort ="1000" lower="0" upper="1000"
-velocity="1000"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="1000.0" lower="-1.57" upper="1.57" velocity="0.2"/>/>
     <joint_properties damping="1.0" friction="1.0"/>
   </joint>
   
@@ -207,7 +206,18 @@ velocity="1000"/>
 	    <origin xyz="0.15 0 0.0" rpy="0 0 0"/>
       <child link="camera_link"/>
 	    <parent link="link_head"/>
-	 </joint>
+	</joint>
+
+  <transmission name="joint_head_trans">
+	  <type>transmission_interface/SimpleTransmission</type>
+	  <joint name="joint_head">
+		<hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+	</joint>
+	<actuator name="motor1">
+		<hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+		<mechanicalInterface>1</mechanicalInterface>
+	</actuator>
+  </transmission>
 
 
 
