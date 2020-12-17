@@ -58,10 +58,9 @@ class ball_tracking:
         # subscriber to current behaviour
         rospy.Subscriber("/behaviour", String, self.get_behaviour)
     
-    def __del__(self): 
-        print('Destructor called, ball_tracking deleted.')
 
-    # method get_behaviour
+
+    ## method get_behaviour
     #
     # subscriber callback to the behaviour topic
     def get_behaviour(self, state):

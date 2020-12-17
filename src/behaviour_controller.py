@@ -161,7 +161,7 @@ class Play(smach.State):
     
 ## function main 
 #
-#   
+# Initiaize the state machine
 def main():
     rospy.init_node("behaviour_controller")
 
