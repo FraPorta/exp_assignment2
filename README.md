@@ -7,103 +7,110 @@ This architecture is intended to spawn a robot in a simulated environment, where
 ### Architecture
 
 <p align="center"> 
-<img src="">
+<img src="https://github.com/FraPorta/Itslit/blob/master/exp_assignment2.png?raw=true">
 </p>
 
 #### Components
 * Human Interaction Generator
 * Behaviour Controller
 * Motion Controller
-* Ball Tracking
+* Ball Tracking 
 
 #### Description
 The main architecture is composed by four components, three of them are related to the robot control (one for the behaviour and two for the movement in the map) and the other one represents the user who gives commands to the ball (move in a certain point or go underground). 
 
-The **Human Interaction Generator** component simulates a User who sends a pointing position to the Motion controller at random intervals, using a Ros message. It is coded in order to simulate a "stupid" user who doesn't wait for the pet to be able to accomplish its request, but sends the positions totally randomly. During the developement the component was initially coded to publish messages only when the pet's behaviour was in Play, then I modified it for testing purpouses, making it completely random.
+The **Human Interaction Generator** component gives goal positions to the ball, using a SimpleActionClient and blocks until the goal is reached, then it sleeps for a random number of seconds between 5 and 10, so that the ball remains still.\
+There are two possibilities: sending a random goal position over the ground and sending the ball underground (always in the same position [0 0 -1]). This choice is made randomly, and at each iteration there is a 25% possibility for the ball to disappear under the ground.
 
-The **Voice Command Generator** component simulates a User who gives voice commands to the robot at random intervals, using a Ros message. It uses the same assumptions and development sequence of the other User component.
+The **Behaviour Controller** component contains the finite state machine and is responsible of changing the behaviour of the robot publishing the state on a topic every time it changes, so that the other components can change their behaviour accordingly. The three behaviours are: Normal (which is the initial one), Sleep and Play. The details will be covered in the State Machine section. It subscribes to the */ball_detected* topic in order to change from the Normal to the Play state and to the */home_reached* topic to change between Sleep and Normal.
 
-The **Behaviour Controller** component contains the finite state machine and is responsible of changing the behaviour of the pet publishing the state on a topic every time it changes, so that the other components change their behaviour accordingly. The three behaviours are: Normal (which is the initial one), Sleep and Play. The details will be covered in the State Machine section. It subscribes to the Voice Command topic in order to change from the Normal to the Play state.
+The **Motion Controller** component handles the robot motion when the behaviour is set to Normal or Sleep. It subscribes to the */behaviour* topic in order to get the current state. Moreover it instantiates a SimpleActionClient that communicates to the Action Server *Go to point robot* in order to request the goal positions that the robot should reach.
+In the Normal state, it chooses a random position in the environment, getting a random number for the x and y position between -8 and 8, which are the maximum dimensions of the simulated map. Then it sends the goal to the Server and waits for it to be achieved. If the state changes when a goal has yet to be reached, using the callback of the *send_goal* function it cancels the current goal so that the robot can change its behaviour accordingly.\
+In the Sleep state the motion controller sends the home position (retrieved from the Ros parameters) as the goal to the aAction Server and waits. When the goal is reached it publishes on the */home_reached* topic to alert the Behaviour controller that the robot is at home.
 
-The **Motion Controller** component simulates the robot movements with corresponding random delays according to the current state of the state machine, retrieved from the behaviour topic. It also instantiates the Map and send on a topic the actual position of the robot every time it changes.\
-In the Normal state, it simulates the pet moving randomly on the Map.\ 
-In the Sleep state it simulates the pet moving to the home position, and staying there until the state return to Normal.\
-In the Play state, it simulates the pet going to the position of the user, waiting for a pointing position, and then reaching it. 
+The **Ball tracking** component implements the openCv algorithm to detect the ball (more precisely the color of the ball) and makes the robot follow the ball when the actual behaviour is Play. It subscribes to the robot camera topic (*/robot/camera1/image_raw/compressed*) and, inside the subscriber callback, it uses the OpenCv libraries to detect the ball in the environment. When the ball is detected it immediately sends a message on the */ball_detected* topic for the Behaviour controller. Then when the state is transitioned to the Play one, it publishes velocities to the */robot/cmd* topic in order to make the robot follow the ball. When the ball stops, and so also the robot stops, it stops tracking the ball and publish commands to the */robot/joint_position_controller/command* topic to make the head revolute joint of the robot move to the right, then to the left and then back to the default position. After having finished it returns to track the ball and follow it until the state changes or the ball stops again.
 
-#### Simulator
-The **Simulator** is a component that subscribes to all the topics of the architecture and shows on the command window the actual state, position of the robot and the user commands when they are published.
+#### Action Servers
+* Go to point robot
+* Go to point ball
+
+The **Go to point robot** is a node that is used by the Motion controller, which implements a SimpleActionClient instance as already mentioned. The robot SimpleActionServer receives a goal from the Motion controller and publish velocities to the */robot/cmd_vel* topic and gives feedbacks until the goal is reached. It has three states: one to fix the robot yaw towards the goal, one to go straight ahead and the last one to stop when the goal is reached.
+
+The **Go to point ball** is very similar to the robot one, but it controls the ball movement, publishing on the topic */ball/cmd_vel*, which consists only in controlling its linear velocities along x, y and z, so there is no yaw control in this case.
+The states are only two: one for the movement towards the goal and one to stop when the goal is reached.
 
 #### Ros Parameters
 * home_x &rarr; home x position on the map
 * home_y &rarr; home y position on the map
 
-#### Ros Topics
-* /behaviour &rarr; topic on which the current behaviour is published when modified
+#### Ros Topics 
+I will list only the ros topics directly related to the code that I developed (not the ones only related to gazebo, ros_control, or the ones created by the Action Servers)
+* /behaviour &rarr; topic on which the current state is published by the behaviour controller
+* /ball_detected &rarr; topic on which it is published when the ball is detected or not using a Bool
+* /home_reached &rarr; topic on which it is published when the home is reached or not during the Sleep behaviour using a Bool
+* /robot/joint_position_controller/command &rarr; topic used to move the robot head joint
+* /robot/camera1/image_raw/compressed &rarr; topic used to retrieve the images from the robot camera 
+* /robot/cmd_vel &rarr; topic used to publish velocities to the robot by the ball tracking component and the Go to point robot Action Server
+* /robot/odom &rarr; topic used to get the robot odometry in the Go to point robot Action Server
+* /robot/reaching_goal &rarr; family of topics of the action server for the robot
+* /ball/cmd_vel &rarr; topic used to publish velocities to the ball by the Go to point ball Action Server
+* /ball/reaching_goal &rarr; family of topics of the action server for the ball
+
 
 ### State Machine
 This is the state machine inside the Behaviour Controller component
 <p align="center"> 
-<img src="https://github.com/FraPorta/Itslit/blob/master/state_diagram.png?raw=true">
+<img src="https://github.com/FraPorta/Itslit/blob/master/state_diagram_2.png?raw=true">
 </p>
 
-The **Normal** behaviour consists in moving randomly around the map. If the ball is detected by the camera, it goes to the Play behaviour, otherwise it can randomly go to the Sleep state after at least 30 seconds have passed in the Normal behaviour.
+The **Normal** behaviour consists in moving randomly around the map. Whenever the ball is detected by the camera, it goes to the Play behaviour, otherwise it can randomly go to the Sleep state after at least 30 seconds have passed in the Normal behaviour.
 
-The **Sleep** behaviour consists in going to the home position and staying there for some time. The transition to the Normal state happens after a random time period (20-40 seconds), that starts after the robot has reached the home position.
+The **Sleep** behaviour consists in going to the home position and staying there for some time. The transition to the Normal state happens after a random time period (20-40 seconds), that starts after the robot has reached the home position. 
 
-The **Play** behaviour is the most complex, 
-
+In the **Play** behaviour the robot simply follows the ball. When the ball stops (and so also the robot stops) it moves his head 45 degrees on one side, wait some seconds, move it to the other side, wait some seconds and return to the zero position (this is managed by the ball_tracking node). When the ball is not detected anymore, a counter starts and if it reaches 15 seconds without seeing the ball again, it returns to the Normal state. This time has been chosen because it is approximately the time that the robot takes to make a 360 degree turn around himself, such that if the ball is not underground, it will be detected again.
 
 ## Contents of the repository
-### Launch
-Contains three launch files, which will be explained in the Installation and Running procedure paragraph
-### Msg
-This folder contains the ".msg" file needed for the positions topics (IntList).
-### Src
-Contains the four python files (the components) of the architecture and two subfolders, *Lib* and *Simulator*
-#### Lib
-Contains the PetMap class, which is used to keep the position of the robot updated 
-#### Simulator
-Contains the simulator python file
+Here the content of the folders contained in this repository is explained
+### Action
+Contains the definition of a custom action message
+### Config
+Contains the yaml configuration file for the joint_position_controller and joint_state_controller, managed by the ros_control plugin
 ### Documentation
 Contains the html documentation of the project (in order to see it, open the *index.html* file in a web browser like Chrome or Firefox)
+### Launch
+Contains two launch files. One (*gazebo_world.launch*) is for showing on gazebo the simulated world and spawning  the human, the robot, the ball and their relative action servers and joint controller.
+The other one is for the behaviour architecture that manages the robot and ball movements.
+### Scripts
+Contains the two action servers python files: *go_to_point_ball.py* and *go_to_point_robot.py*
+### Src
+Contains the four python files (the components) of the main architecture: *human_interaction_gen.py*, *behaviour_controller.py*, *motion_controller.py* and *ball_tracking.py*
+### Urdf
+Contains the descriptions of the robot model, the ball and their relative gazebo files, and the description of the human. The description of the robot has been modified to include two new links and corresponding joints, a fixed one for the neck and a revolute for the head. Moreover a transmission motor has been included to make the robot head position controllable using the ros_control plugin.
+### Worlds
+in the worlds folder there is the description of the simulation world that will be loaded on gazebo.
+
+
 ## Installation and running procedure
-The first thing to do, after having cloned the repository in the Ros workspace, is to build the package and install it, using the following commands in the workspace:
+The first thing to do, after having cloned the repository in the Ros workspace, is to build the package, using the following command in the workspace:
     
 ```console
 catkin_make
 ```
-You can run the whole system, including the main architecture and the simulator, with this command:
-    
-```console
-roslaunch pet_behaviour_ pet_and_simulator.launch 
-```
-Otherwise you can run separately the main architecture and the simulator using two commands:
+In order to run the system, you have to launch the two following launch files in this order, the first one loads the gazebo world and runs the action servers, the second one runs the rest of the architecture:
 
 ```console
-roslaunch pet_behaviour_ simulator.launch
-roslaunch pet_behaviour_ pet_launcher.launch 
+roslaunch exp_assignment2 gazebo_world.launch
+roslaunch exp_assignment2 behaviour_architecture.launch 
 ```
-You can modify the simulation speed by changing the timescale parameter in the two launchfiles above (example: timescale = 0.5 -> simulation time halved)
-The simulator launchfile also contains the Smach_viewer launch which allows to visualize better the current state and the transitions between states.
+You need to have the ros_control and gazebo ros_control related packages, if not some problems may arise in the Play behaviour.
 
 ## Working hypothesis and environment
-The main working hypotesis that influences all the project is that the robot and the user are purely and simply simulated by software components: for the user the voice commands and the pointing gestures are simply represented by Ros messages sent at random, for the robot the movements on the map are only a random sleep time and a couple of int values that represent its position on the map, updated when the sleep time is over.\
-Moreover the map is simulated using a couple of int values for the total length and width and a couple of values for each important position on the map (home, user, robot).
 
 ## System’s features
-The main feature of the system is the state machine which controls the behaviour of the pet, which is coded in such a way that it can be used also in a more complex and close to reality application.\
-Another feature is the fact that even simulating at a high speed (like 100 times the real time) the system does not fail and, even if this is irrealistic, it works fine and it is possible to observe a lot of iterations in a short time that give an idea of the average behaviour of the pet. Doing this, it can be observed that even if the randomness of the system is quite high, the architecture does del with that well and does not make errors in retrieveng and executing the commands given by the user.
 
 ## System’s limitations
-The user and home positions on the map are predefined before starting the architecture and they do not change during the execution.\
-The transition from Normal to Sleep behaviour can be improved, the probability of going to the Sleep state is not optimal because sometimes a long time passes before going to Sleep again, while some other times the robot goes to Sleep consecutively in a range of few seconds.\
-If the pet is in the Normal state and the behaviour changes, it has to first reach the position it was randomly going to before actually changing the behaviour and execute the next commands.\ 
-When user commands arrive in a moment where the robot can not handle it, like when it is Sleeping or moving to a pointed gesture or towards the user in the Play state, the architecture sinply ignores them.
 
 ## Possible technical improvements
-If we consider the working hypotesis and the actual scenario not changing, I think that the part that can be improved consistenly is the motion controller and the simulator, which are very basic, as the specifications required, and they should be changed drastically in order to resemble a real robot behaviour: in fact, for the time being, the pet movements are not really simulated. A little adjustment that could be made without overturning the whole project is to make the waiting times for the robot movements proportional to the distance that the robot has to cover, in order to have a more realistic feeling of the behaviour of the architecture in a real scenario, specifically from the point of view of the State Machine which is actually the core of this project.
-Moreover, also the simulator node can be improved in order to show the actual movement of the robot, instead of only showing when a point is reached.\
-User commands that are ignored in this version of the archtiecture can be for example stored and executed when it will be possible for the robot.
 
 
 ## Rqt_graph
