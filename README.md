@@ -7,7 +7,7 @@ This architecture is intended to spawn a robot in a simulated environment, where
 ### Architecture
 
 <p align="center"> 
-<img src="https://github.com/FraPorta/Itslit/blob/master/exp_assignment2.png?raw=true">
+<img src="https://github.com/FraPorta/Itslit/blob/master/exp_assignment2_v2.png?raw=true">
 </p>
 
 #### Components
@@ -49,7 +49,7 @@ I will list only the ros topics directly related to the code that I developed (n
 * /ball_detected &rarr; topic on which it is published when the ball is detected or not using a Bool
 * /home_reached &rarr; topic on which it is published when the home is reached or not during the Sleep behaviour using a Bool
 * /robot/joint_position_controller/command &rarr; topic used to move the robot head joint
-* /robot/camera1/image_raw/compressed &rarr; topic used to retrieve the images from the robot camera 
+* /robot/camera1/image_raw/compressed &rarr; (/robot/camera in the diagram) topic used to retrieve the images from the robot camera 
 * /robot/cmd_vel &rarr; topic used to publish velocities to the robot by the ball tracking component and the Go to point robot Action Server
 * /robot/odom &rarr; topic used to get the robot odometry in the Go to point robot Action Server
 * /robot/reaching_goal &rarr; family of topics of the action server for the robot
