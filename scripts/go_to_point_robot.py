@@ -1,4 +1,9 @@
 #! /usr/bin/env python
+
+## @package go_to_point_robot
+#
+# implements an action server to move the robot on the map
+
 # import ros stuff
 import rospy
 from sensor_msgs.msg import LaserScan
@@ -27,7 +32,7 @@ kp_a = -3.0
 kp_d = 0.2
 ub_a = 0.6
 lb_a = -0.5
-ub_d = 0.6
+ub_d = 0.8
 
 # publisher
 pub = None
@@ -36,7 +41,9 @@ pubz = None
 #action_server
 act_s = None
 
-# callbacks
+## function clbk_odom
+#
+# callback for the odometry of the robot
 def clbk_odom(msg):
     global position_
     global pose_
@@ -55,16 +62,25 @@ def clbk_odom(msg):
     euler = transformations.euler_from_quaternion(quaternion)
     yaw_ = euler[2]
 
+## function change_state
+#
+# changes the state while the robot moves until it reaches the goal
 def change_state(state):
     global state_
     state_ = state
-    print('State changed to [%s]' % state_)
+    print('Robot state changed to [%s]' % state_)
 
+## function normalize_angle
+#
+# normalize an angle
 def normalize_angle(angle):
     if(math.fabs(angle) > math.pi):
         angle = angle - (2 * math.pi * angle) / (math.fabs(angle))
     return angle
 
+## function fix_yaw
+#
+# fixes the yaw of the robot
 def fix_yaw(des_pos):
     global yaw_, pub, yaw_precision_2_, state_
     desired_yaw = math.atan2(des_pos.y - position_.y, des_pos.x - position_.x)
@@ -86,6 +102,9 @@ def fix_yaw(des_pos):
         print('Yaw error: [%s]' % err_yaw)
         change_state(1)
 
+## function go_straight_ahead
+#
+# makes the robot go straight to the goal
 def go_straight_ahead(des_pos):
     global yaw_, pub, yaw_precision_, state_
     desired_yaw = math.atan2(des_pos.y - position_.y, des_pos.x - position_.x)
@@ -96,7 +115,7 @@ def go_straight_ahead(des_pos):
 
     if err_pos > dist_precision_:
         twist_msg = Twist()
-        twist_msg.linear.x = 0.5
+        twist_msg.linear.x = 0.8
         if twist_msg.linear.x > ub_d:
 			twist_msg.linear.x = ub_d
         
@@ -111,13 +130,18 @@ def go_straight_ahead(des_pos):
         print('Yaw error: [%s]' % err_yaw)
         change_state(0)
 
+## function done
+#
+# puts robot velocities to zero
 def done():
     twist_msg = Twist()
     twist_msg.linear.x = 0
     twist_msg.angular.z = 0
     pub.publish(twist_msg)
     
-    
+## function planning
+#
+# plans what the robot should do
 def planning(goal):
 	
 	global state_,desired_position_
@@ -160,9 +184,12 @@ def planning(goal):
 		
 		rate.sleep()
 	if success:
-		rospy.loginfo('Goal: Succeeded!')
+		rospy.loginfo('Robot goal: Succeeded!')
 		act_s.set_succeeded(result)
 
+## function main
+#
+# starts pubs/subs amd action server
 def main():
     global pub, act_s
     rospy.init_node('go_to_point_robot')

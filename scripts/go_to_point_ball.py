@@ -1,4 +1,9 @@
 #! /usr/bin/env python
+
+## @package go_to_point_ball
+#
+# implements an action server to move the ball on the map
+
 # import ros stuff
 import rospy
 from sensor_msgs.msg import LaserScan
@@ -27,7 +32,8 @@ kp_a = -3.0
 kp_d = 0.5
 ub_a = 0.6
 lb_a = -0.5
-ub_d = 2.0
+#ub_d = 2.0
+ub_d = 0.8
 z_back = 0.25
 
 # publisher
@@ -37,9 +43,9 @@ pubz = None
 # action_server
 act_s = None
 
-# callbacks
-
-
+## function clbk_odom
+#
+# callback for the odometry of the robot
 def clbk_odom(msg):
     global position_
     global pose_
@@ -49,13 +55,17 @@ def clbk_odom(msg):
     position_ = msg.pose.pose.position
     pose_ = msg.pose.pose
 
-
+## function change_state
+#
+# changes the state while the robot moves until it reaches the goal
 def change_state(state):
     global state_
     state_ = state
-    print ('State changed to [%s]' % state_)
+    print ('Ball state changed to [%s]' % state_)
 
-
+## function go_straight_ahead
+#
+# makes the ball go straight to the goal
 def go_straight_ahead(des_pos):
     global pub, state_, z_back
     err_pos = math.sqrt(pow(des_pos.y - position_.y, 2) +
@@ -90,14 +100,18 @@ def go_straight_ahead(des_pos):
         #print ('Position error: [%s]' % err_pos)
         change_state(1)
 
-
+## function done
+#
+# puts ball velocities to zero
 def done():
     twist_msg = Twist()
     twist_msg.linear.x = 0
     twist_msg.linear.y = 0
     pub.publish(twist_msg)
 
-
+## function planning
+#
+# plans what the ball should do
 def planning(goal):
 
     global state_, desired_position_
@@ -136,10 +150,12 @@ def planning(goal):
 
         rate.sleep()
     if success:
-        rospy.loginfo('Goal: Succeeded!')
+        rospy.loginfo('Ball goal: Succeeded!')
         act_s.set_succeeded(result)
 
-
+## function main
+#
+# starts pubs/subs amd action server
 def main():
     global pub, act_s, pubz
     rospy.init_node('go_to_point_ball')

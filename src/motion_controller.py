@@ -2,7 +2,7 @@
 
 ## @package motion_controller
 #
-# control the position of the robot in the map respecting the behaviour
+# makes the robot move in the map respecting the normal and sleep behaviour
 
 import rospy
 import random
@@ -104,7 +104,7 @@ def move_sleep():
 
 ## function main
 #
-#
+# init action client and choose how the robot moves checking its state (behaviour)
 def main():
     # init node
     rospy.init_node("motion_controller")

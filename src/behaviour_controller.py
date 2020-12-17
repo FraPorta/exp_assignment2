@@ -3,6 +3,7 @@
 ## @package behaviour_controller
 #
 # state machine to control the behaviour of the pet
+# States: NORMAL, SLEEP, PLAY
 
 import rospy
 import smach
@@ -143,7 +144,7 @@ class Play(smach.State):
                 self.counter = self.counter + 1
                 rospy.loginfo("Searching for the ball... "+str(self.counter)+" seconds")
                 # if the ball is not detected for 10 seconds straight
-                if self.counter > 10:
+                if self.counter > 15:
                     return 'stop_play'
             elif(self.ball_detected):
                 self.counter = 0

@@ -14,6 +14,7 @@ from exp_assignment2.msg import PlanningAction, PlanningActionGoal
 
 act_c = None
 goal_pos = PlanningActionGoal()
+
 ## function get_random_position
 #
 # get a random position on the map for the ball
@@ -59,7 +60,7 @@ def ball_disappear():
     
 ## function main
 #
-#
+# initialize node, action client and makes the ball move on the map or underground
 def main():
     # init node
     rospy.init_node("human_interaction_generator")
