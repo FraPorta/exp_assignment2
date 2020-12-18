@@ -115,6 +115,7 @@ These problems were overcome by lowering the maximum velocity of the ball in the
 Another limitation I found is that sometimes, after in the Play behaviour the robot stops and performs the head movement, the ball is still stationary in front of it, so the head movement is performed twice in a row. This could be solved slitghly modifying the stop times of the ball or the duration of the head movement, but I preferred leaving it like it is beacuse it is a very rare issue and it does not compromise the overall functioning of the architecture.  
 
 ## Possible technical improvements
+These are some possible technical improvements that can be made to obtain a more realistic and performing system:
 - Setting also the desired orientation of the robot in the normal and sleep behaviours
 - Avoid sending the ball on the human position
 - Adding a more realistic model of the pet robot (now the neck and head are only a cylinder and a box)
