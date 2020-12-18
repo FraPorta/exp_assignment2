@@ -80,7 +80,7 @@ def main():
             # move the ball
             move_ball()
         # wait random time
-        rospy.sleep(random.randint(5,10))
+        rospy.sleep(random.randint(7,10))
 
         rate.sleep()
 

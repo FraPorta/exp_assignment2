@@ -82,8 +82,8 @@ class ball_tracking:
                 if self.near_ball: 
                     # if near enough to the ball start following it
                     twist_msg = Twist()
-                    twist_msg.angular.z = 0.004*(self.center[0] - 400)
-                    twist_msg.linear.x = -0.02*(self.radius - 100)
+                    twist_msg.angular.z = 0.003*(self.center[0] - 400)
+                    twist_msg.linear.x = -0.01*(self.radius - 100)
                     self.vel_pub.publish(twist_msg) 
                 else:
                     # if not near enough go towards the ball
@@ -165,8 +165,8 @@ class ball_tracking:
             # if behaviour is play, follow the ball
             if self.behaviour == "play":
                 if self.ball_detected and self.near_ball:
-                    angular_z = 0.004*(self.center[0] - 400)
-                    linear_x = -0.02*(self.radius - 100)
+                    angular_z = 0.003*(self.center[0] - 400)
+                    linear_x = -0.01*(self.radius - 100)
                     # if the ball is still, move the head
                     if abs(angular_z) < 0.04 and abs(linear_x) < 0.04 :
                         # signal that the ball has stopped
@@ -219,7 +219,7 @@ def main(args):
         # if the ball stops, move the head of the robot
         if bt.ball_stopped:
             move_head()
-            rospy.sleep(1)
+            rospy.sleep(2)
             bt.ball_stopped = False
             rospy.loginfo("Return to ball tracking...")
 

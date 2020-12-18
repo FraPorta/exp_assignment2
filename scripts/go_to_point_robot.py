@@ -32,7 +32,7 @@ kp_a = -3.0
 kp_d = 0.2
 ub_a = 0.6
 lb_a = -0.5
-ub_d = 0.8
+ub_d = 0.6
 
 # publisher
 pub = None
@@ -115,7 +115,7 @@ def go_straight_ahead(des_pos):
 
     if err_pos > dist_precision_:
         twist_msg = Twist()
-        twist_msg.linear.x = 0.8
+        twist_msg.linear.x = 0.5
         if twist_msg.linear.x > ub_d:
 			twist_msg.linear.x = ub_d
         
