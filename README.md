@@ -104,13 +104,24 @@ roslaunch exp_assignment2 behaviour_architecture.launch
 ```
 You need to have the ros_control and gazebo ros_control related packages, if not some problems may arise in the Play behaviour.
 
-## Working hypothesis and environment
-
 ## System’s features
+The principal way used to stress the sysytem is the complete randomness of the elements of the architecture: the motion of the ball is managed by the human node using random goal positions and random wait times between a movement and another. Moreover the choice of givinig a goal position over or under the ground is also random. The robot in the Normal state moves randomly on the map and always tries to detect the ball, so its behaviour can change at any time. When in the Play state the robot always follows the ball until it stops or it disappears, so it is bound to the randomness of the ball motions. The transition between Normal and Sleep behaviour is also random and it is allowed after 30 seconds of Normal behaviour, in order to make it less probable than the Play one which is more insteresting in testing the architecture robustness.\
+One of the system features is the fact that when in the Normal state, the robot will always be ready to cancel the current goal and transition to the required state (Play or Sleep), thanks to the capabilities of the Action Server-Client system and the feedback messages.\
+The system has been tested during various sessions, with one of them in particular that lasted two hours straight, and no major issues has been found, apart for one particular case which will be explained in the next paragraph.
 
 ## System’s limitations
+The main issue I found out during the early testing sessions is the fact that the initial velocity of the ball defined in the Go to point ball node was too high: this lead to two main problems. The first one was te fact that the robot struggled to follow the ball properly and often lost track of it when it was moving perpendicular to the direction of the robot in the Play state. The other is the fact that while the robot was following the ball, if the ball started moving directly against the direction of motion of the robot, it overturns itself and could not move anymore because the velocities given in the opposite direction of its previous motion were too high\
+These problems were overcome by lowering the maximum velocity of the ball in the Action Server and increasiing a bit the velocity of the robot during the ball tracking. The robot never again lost track of the ball during my tests. The overturning happened another time at the end of the two hours session, but I am not sure of what caused this, because I saw several times the ball moving directly towards the robot at full speed during that same test and also other test sessions, and the overturning did not happen ever again. 
+Another limitation I found is that sometimes, after in the Play behaviour the robot stops and performs the head movement, the ball is still stationary in front of it, so the head movement is performed twice in a row. This could be solved slitghly modifying the stop times of the ball or the duration of the head movement, but I preferred leaving it like it is beacuse it is a very rare issue and it does not compromise the overall functioning of the architecture.  
 
 ## Possible technical improvements
+- Setting also the desired orientation of the robot in the normal and sleep behaviours
+- Avoid sending the ball on the human position
+- Adding a more realistic model of the pet robot (now the neck and head are only a cylinder and a box)
+- Adding a system for obstacle avoidance in the robot
+- Eliminate the 30 seconds restriction I set as needed to pass to the Sleep behaviour from Normal to increase the randomness even more
+
+
 
 
 ## Rqt_graph
